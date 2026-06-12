@@ -226,7 +226,7 @@ textarea#note:focus{border-color:var(--rose)}
         <input id="quick-input" placeholder="如：奶茶1 跑步40分钟 姨妈 难受3">
         <button id="quick-go">记</button>
       </div>
-      <div class="quickhint">能识别：奶茶/大餐/健康餐/自摸 + 数量、姨妈、难受1~5、长痘、运动名 + 时长（分钟或小时）</div>
+      <div class="quickhint">能识别：奶茶/大餐/健康餐/小快乐/社交 + 数量、姨妈、难受1~5、长痘、早睡、运动名 + 时长（分钟或小时）</div>
     </div>
 
     <div class="card">
@@ -335,11 +335,12 @@ const CATS = {
   milktea : {emoji:"🧋", label:"奶茶",     color:"var(--brown)",  raw:"#a9794e", unit:"杯"},
   feast   : {emoji:"🍖", label:"大鱼大肉", color:"var(--orange)", raw:"#e8923c", unit:"顿"},
   healthy : {emoji:"🥗", label:"健康餐",   color:"var(--green)",  raw:"#43a684", unit:"顿"},
-  selfcare: {emoji:"💗", label:"自摸",     color:"var(--pink)",   raw:"#d977c9", unit:"次"},
+  selfcare: {emoji:"💗", label:"小快乐",   color:"var(--pink)",   raw:"#d977c9", unit:"次"},
+  social  : {emoji:"🎉", label:"社交活动", color:"#3aa8c4",       raw:"#3aa8c4", unit:"次"},
 };
 const PAINS = [["😌","还好"],["😕","有点"],["😣","难受"],["😖","很难受"],["😭","要命"]];
-const WO_TYPES = ["跑步","健身房","瑜伽","游泳","骑行","爬山","羽毛球","跳舞","散步","其他"];
-const WO_EMOJI = {跑步:"🏃‍♀️",健身房:"🏋️‍♀️",瑜伽:"🧘‍♀️",游泳:"🏊‍♀️",骑行:"🚴‍♀️",爬山:"⛰️",羽毛球:"🏸",跳舞:"💃",散步:"🚶‍♀️",其他:"✨"};
+const WO_TYPES = ["跑步","健身房","健身课","瑜伽","游泳","骑行","爬山","羽毛球","跳舞","散步","其他"];
+const WO_EMOJI = {跑步:"🏃‍♀️",健身房:"🏋️‍♀️",健身课:"🤸‍♀️",瑜伽:"🧘‍♀️",游泳:"🏊‍♀️",骑行:"🚴‍♀️",爬山:"⛰️",羽毛球:"🏸",跳舞:"💃",散步:"🚶‍♀️",其他:"✨"};
 const WO_DURS = [15,30,45,60,90,120];
 const TODO_EMOJIS = ["📄","🏛️","🪑","🪟","✈️","🐱","🛒","🏠","💊","💼","📞","✨"];
 
@@ -362,11 +363,11 @@ function load(){
 function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
 function uid(){ return Math.random().toString(36).slice(2,9) + Date.now().toString(36); }
 
-function blankDay(){ return {period:false,pain:0,healthy:0,feast:0,milktea:0,selfcare:0,acne:false,workouts:[],note:""}; }
+function blankDay(){ return {period:false,pain:0,healthy:0,feast:0,milktea:0,selfcare:0,social:0,acne:false,sleep:false,workouts:[],note:""}; }
 function day(k){ if(!S.days[k]) S.days[k] = blankDay(); return S.days[k]; }
 function dayOrNull(k){ return S.days[k] || null; }
 function hasData(d){
-  return d && (d.period || d.acne || d.healthy>0 || d.feast>0 || d.milktea>0 || d.selfcare>0 ||
+  return d && (d.period || d.acne || d.sleep || d.healthy>0 || d.feast>0 || d.milktea>0 || d.selfcare>0 || d.social>0 ||
     (d.workouts && d.workouts.length>0) || (d.note && d.note.trim()));
 }
 function cleanup(k){ const d = S.days[k]; if(d && !hasData(d) && !d.pain) delete S.days[k]; }
@@ -452,7 +453,7 @@ function renderLog(){
   // 计数器
   const cg = document.getElementById("counters");
   cg.innerHTML = "";
-  for(const key of ["milktea","feast","healthy","selfcare"]){
+  for(const key of ["milktea","feast","healthy","selfcare","social"]){
     const c = CATS[key];
     const el = document.createElement("div");
     el.className = "counter";
@@ -470,6 +471,13 @@ function renderLog(){
     <div class="crow"><div class="switch ${d.acne?"on":""}" style="margin:0 auto"></div></div>`;
   acne.querySelector(".switch").onclick = ()=>{ const dd=day(curDate); dd.acne=!dd.acne; cleanup(curDate); save(); renderLog(); };
   cg.appendChild(acne);
+  // 11点前睡觉格子（记的是前一晚有没有早睡）
+  const sleep = document.createElement("div");
+  sleep.className = "counter";
+  sleep.innerHTML = `<div class="ce">🌙</div><div class="cl">11点前睡觉</div>
+    <div class="crow"><div class="switch ${d.sleep?"on":""}" style="margin:0 auto"></div></div>`;
+  sleep.querySelector(".switch").onclick = ()=>{ const dd=day(curDate); dd.sleep=!dd.sleep; cleanup(curDate); save(); renderLog(); };
+  cg.appendChild(sleep);
 
   // 运动
   const tWrap = document.getElementById("wo-types");
@@ -528,7 +536,7 @@ function quickParse(text){
   let s = text;
 
   // 运动：运动名 + 数字 + 单位
-  const woRe = /(跑步|健身房|健身|瑜伽|游泳|骑行|爬山|羽毛球|跳舞|散步)\s*(\d+(?:\.\d+)?)\s*(小时|h|H|分钟|分|min)?/g;
+  const woRe = /(跑步|健身课|健身房|健身|瑜伽|游泳|骑行|爬山|羽毛球|跳舞|散步)\s*(\d+(?:\.\d+)?)\s*(小时|h|H|分钟|分|min)?/g;
   let m;
   while((m = woRe.exec(s)) !== null){
     let type = m[1] === "健身" ? "健身房" : m[1];
@@ -551,9 +559,11 @@ function quickParse(text){
   if(/姨妈|月经|大姨妈/.test(s)){ d.period = true; got.push("姨妈日"); }
   // 长痘
   if(/长痘|爆痘|痘痘/.test(s)){ d.acne = true; got.push("长痘"); }
+  // 11点前睡觉
+  if(/早睡|11点前睡|十一点前睡/.test(s)){ d.sleep = true; got.push("11点前睡觉🌙"); }
 
   // 计数类
-  const cntRe = {milktea:/(奶茶|咖啡奶茶)\s*[x×*]?\s*(\d*)/, feast:/(大餐|大鱼大肉|火锅|烧烤|聚餐)\s*[x×*]?\s*(\d*)/, healthy:/(健康餐|轻食|沙拉)\s*[x×*]?\s*(\d*)/, selfcare:/(自摸)\s*[x×*]?\s*(\d*)/};
+  const cntRe = {milktea:/(奶茶|咖啡奶茶)\s*[x×*]?\s*(\d*)/, feast:/(大餐|大鱼大肉|火锅|烧烤|聚餐)\s*[x×*]?\s*(\d*)/, healthy:/(健康餐|轻食|沙拉)\s*[x×*]?\s*(\d*)/, selfcare:/(小快乐|自摸)\s*[x×*]?\s*(\d*)/, social:/(社交|聚会|约会|派对)\s*[x×*]?\s*(\d*)/};
   for(const [key,re] of Object.entries(cntRe)){
     const mm = s.match(re);
     if(mm){
@@ -622,7 +632,9 @@ function renderCal(){
       if(rec.feast > 0)    dots.push("#e8923c");
       if(rec.healthy > 0)  dots.push("#43a684");
       if(rec.selfcare > 0) dots.push("#d977c9");
+      if(rec.social > 0)   dots.push("#3aa8c4");
       if(rec.acne)         dots.push("#9b6fd1");
+      if(rec.sleep)        dots.push("#e3b53a");
     }
     if(dots.length) inner += `<span class="dots">${dots.map(c=>`<i style="background:${c}"></i>`).join("")}</span>`;
     cell.innerHTML = inner;
@@ -638,8 +650,10 @@ function renderCal(){
     <span><i style="background:#a9794e"></i>奶茶</span>
     <span><i style="background:#e8923c"></i>大鱼大肉</span>
     <span><i style="background:#43a684"></i>健康餐</span>
-    <span><i style="background:#d977c9"></i>自摸</span>
-    <span><i style="background:#9b6fd1"></i>长痘</span>`;
+    <span><i style="background:#d977c9"></i>小快乐</span>
+    <span><i style="background:#3aa8c4"></i>社交活动</span>
+    <span><i style="background:#9b6fd1"></i>长痘</span>
+    <span><i style="background:#e3b53a"></i>11点前睡觉</span>`;
 }
 
 /* ================= 经期统计 ================= */
@@ -671,14 +685,15 @@ document.getElementById("st-prev").onclick = ()=>{ stYM = shiftYM(stYM,-1); rend
 document.getElementById("st-next").onclick = ()=>{ stYM = shiftYM(stYM, 1); renderStats(); };
 
 function agg(prefix){
-  const a = {milktea:0,feast:0,healthy:0,selfcare:0,acneDays:0,periodDays:0,painSum:0,painN:0,
+  const a = {milktea:0,feast:0,healthy:0,selfcare:0,social:0,acneDays:0,sleepDays:0,periodDays:0,painSum:0,painN:0,
              wMins:0,wCount:0,wDays:0,byType:{},recDays:0};
   for(const [k,d] of Object.entries(S.days)){
     if(prefix && !k.startsWith(prefix)) continue;
     if(!hasData(d)) continue;
     a.recDays++;
-    a.milktea += d.milktea||0; a.feast += d.feast||0; a.healthy += d.healthy||0; a.selfcare += d.selfcare||0;
+    a.milktea += d.milktea||0; a.feast += d.feast||0; a.healthy += d.healthy||0; a.selfcare += d.selfcare||0; a.social += d.social||0;
     if(d.acne) a.acneDays++;
+    if(d.sleep) a.sleepDays++;
     if(d.period){ a.periodDays++; if(d.pain){ a.painSum += d.pain; a.painN++; } }
     if(d.workouts && d.workouts.length){
       a.wDays++;
@@ -750,12 +765,16 @@ function renderStats(){
   }
   html += `</div>`;
 
-  // 本月身体
-  html += `<div class="card"><h3>🌸 本月身体小账</h3>
+  // 本月生活
+  html += `<div class="card"><h3>🌸 本月生活小账</h3>
     <div class="bignum">
       <div class="bn"><b style="color:var(--purple)">${M.acneDays}</b><span>🌋 长痘（天）</span></div>
-      <div class="bn"><b style="color:var(--pink)">${M.selfcare}</b><span>💗 自摸（次）</span></div>
+      <div class="bn"><b style="color:var(--pink)">${M.selfcare}</b><span>💗 小快乐（次）</span></div>
       <div class="bn"><b style="color:var(--rose)">${M.periodDays}</b><span>🩸 姨妈（天）</span></div>
+    </div>
+    <div class="bignum" style="margin-top:14px">
+      <div class="bn"><b style="color:#e3b53a">${M.sleepDays}</b><span>🌙 11点前睡（天）</span></div>
+      <div class="bn"><b style="color:#3aa8c4">${M.social}</b><span>🎉 社交活动（次）</span></div>
     </div></div>`;
 
   // 累计成就
@@ -770,6 +789,8 @@ function renderStats(){
       <div class="tile" style="background:var(--orange-soft)"><b style="color:var(--orange)">${A.feast} 顿</b><span>累计大餐</span></div>
       <div class="tile" style="background:var(--green-soft)"><b style="color:var(--green)">${A.healthy} 顿</b><span>累计健康餐</span></div>
       <div class="tile" style="background:var(--rose-soft)"><b style="color:var(--rose)">${ps ? ps.count : 0} 次</b><span>记录的经期次数</span></div>
+      <div class="tile" style="background:#faf3df"><b style="color:#c79a1e">${A.sleepDays} 天</b><span>累计 11 点前睡</span></div>
+      <div class="tile" style="background:#e7f4f8"><b style="color:#3aa8c4">${A.social} 次</b><span>累计社交活动</span></div>
     </div></div>`;
 
   body.innerHTML = html;
