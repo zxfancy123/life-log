@@ -941,6 +941,11 @@ document.getElementById("btn-close-sheet").onclick = ()=> overlay.classList.remo
 overlay.addEventListener("click", e=>{ if(e.target === overlay) overlay.classList.remove("show"); });
 
 document.getElementById("btn-export").onclick = ()=>{
+  // APK 内通过安卓桥接写入「下载」文件夹；浏览器里走普通下载
+  if(window.AndroidBridge && window.AndroidBridge.saveBackup){
+    window.AndroidBridge.saveBackup(JSON.stringify(S, null, 2), "生活记录备份-" + todayKey() + ".json");
+    return;
+  }
   const blob = new Blob([JSON.stringify(S, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

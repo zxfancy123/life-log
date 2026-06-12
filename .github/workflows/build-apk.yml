@@ -1,0 +1,44 @@
+name: build-apk
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > apk/lifelog.p12
+
+      - name: Copy web assets into APK
+        run: |
+          mkdir -p apk/app/src/main/assets
+          cp index.html apk/app/src/main/assets/index.html
+          # APK 内置版不需要 Service Worker（离线由 APK 本身保证）
+          sed -i 's|navigator.serviceWorker.register("sw.js")|Promise.resolve()|' apk/app/src/main/assets/index.html
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: cd apk && gradle assembleRelease --no-daemon
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp apk/app/build/outputs/apk/release/app-release.apk lifelog.apk
+          gh release create "apk-v${{ github.run_number }}" lifelog.apk \
+            -t "生活记录 v1.${{ github.run_number }}" \
+            -n "安卓安装包。手机上用固定链接下载最新版：https://github.com/${{ github.repository }}/releases/latest/download/lifelog.apk"

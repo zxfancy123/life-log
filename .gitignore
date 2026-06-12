@@ -1,0 +1,6 @@
+apk/app/build/
+apk/build/
+apk/.gradle/
+apk/app/src/main/assets/
+apk/lifelog.p12
+apk/local.properties
