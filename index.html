@@ -118,7 +118,7 @@ textarea#note:focus{border-color:var(--rose)}
 .calhead button{font-size:20px;color:var(--ink2);padding:4px 16px;border-radius:12px}
 .weekrow{display:grid;grid-template-columns:repeat(7,1fr);font-size:11px;color:var(--ink2);text-align:center;margin-bottom:4px;font-weight:600}
 .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cell{aspect-ratio:.82;border-radius:12px;background:var(--card);box-shadow:var(--shadow);padding:4px 2px 2px;
+.cell{aspect-ratio:.68;border-radius:12px;background:var(--card);box-shadow:var(--shadow);padding:4px 1px 3px;
   display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;overflow:hidden}
 .cell.empty{background:transparent;box-shadow:none}
 .cell .dn{font-size:13px;font-weight:700;line-height:1.3}
@@ -126,12 +126,19 @@ textarea#note:focus{border-color:var(--rose)}
 .cell.period{background:var(--rose-soft)}
 .cell.predict{background:repeating-linear-gradient(135deg,#fff,#fff 4px,var(--rose-soft) 4px,var(--rose-soft) 8px)}
 .cell.today{outline:2px solid var(--rose);outline-offset:-2px}
-.dots{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:100%;padding:0 2px}
-.dots i{width:6px;height:6px;border-radius:50%;display:block}
-.cell .pe{font-size:10px;line-height:1}
-.legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;padding:0 4px}
+.cell.sel{outline:2.5px solid var(--blue);outline-offset:-2.5px}
+.emos{display:flex;flex-wrap:wrap;justify-content:center;gap:1px 1px;font-size:11px;line-height:1.2;padding:0 1px;max-width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;padding:0 4px}
 .legend span{font-size:11.5px;color:var(--ink2);display:flex;align-items:center;gap:5px}
-.legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.daydetail{margin-top:12px}
+.daydetail .dd-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.daydetail .dd-head b{font-size:15px}
+.daydetail .dd-edit{background:var(--blue-soft);color:var(--blue);border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700}
+.daydetail .dd-line{display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px dashed var(--line);font-size:14.5px}
+.daydetail .dd-line:last-child{border-bottom:none}
+.daydetail .dd-line .de{font-size:17px;flex:none}
+.daydetail .dd-empty{color:var(--ink2);font-size:13px;padding:6px 2px}
 
 /* ===== stats ===== */
 .bignum{display:flex;justify-content:space-around;text-align:center;margin:4px 0 2px}
@@ -270,7 +277,7 @@ textarea#note:focus{border-color:var(--rose)}
     <div class="weekrow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
     <div class="calgrid" id="calgrid"></div>
     <div class="legend" id="legend"></div>
-    <p class="empty-tip" style="margin-top:10px">点任意一天可以补记 / 修改当天记录</p>
+    <div class="card daydetail" id="daydetail"></div>
   </section>
 
   <!-- ============ 统计 ============ -->
@@ -388,6 +395,7 @@ function fmtMins(m){
 /* ================= 状态 ================= */
 let curDate = todayKey();                 // 记一笔 当前编辑日期
 let calYM   = curDate.slice(0,7);         // 日历显示月
+let calSel  = curDate;                    // 日历选中的那天（下方显示详情）
 let stYM    = curDate.slice(0,7);         // 统计显示月
 let woType  = "跑步";                     // 选中的运动类型
 let woDur   = 30;                          // 选中的时长
@@ -623,37 +631,72 @@ function renderCal(){
     if(k === tk) cell.classList.add("today");
     if(k > tk) cell.classList.add("dim");
 
+    if(k === calSel) cell.classList.add("sel");
+
     let inner = `<span class="dn">${dd}</span>`;
-    if(rec && rec.period) inner += `<span class="pe">🩸${rec.pain ? PAINS[rec.pain-1][0] : ""}</span>`;
-    const dots = [];
-    if(rec){
-      if(rec.workouts && rec.workouts.length) dots.push("#5b8def");
-      if(rec.milktea > 0)  dots.push("#a9794e");
-      if(rec.feast > 0)    dots.push("#e8923c");
-      if(rec.healthy > 0)  dots.push("#43a684");
-      if(rec.selfcare > 0) dots.push("#d977c9");
-      if(rec.social > 0)   dots.push("#3aa8c4");
-      if(rec.acne)         dots.push("#9b6fd1");
-      if(rec.sleep)        dots.push("#e3b53a");
+    const emos = dayEmojis(rec);
+    if(emos.length){
+      const show = emos.length > 6 ? emos.slice(0,5).concat("⋯") : emos;
+      inner += `<span class="emos">${show.join("")}</span>`;
     }
-    if(dots.length) inner += `<span class="dots">${dots.map(c=>`<i style="background:${c}"></i>`).join("")}</span>`;
     cell.innerHTML = inner;
-    cell.onclick = ()=>{ curDate = k; switchView("log"); };
+    cell.onclick = ()=>{ calSel = k; renderCal(); };
     grid.appendChild(cell);
   }
 
   const lg = document.getElementById("legend");
   lg.innerHTML = `
-    <span><i style="background:#e8657e"></i>姨妈（粉底）</span>
-    <span><i style="background:#e8657e;opacity:.4"></i>预测姨妈（斜纹）</span>
-    <span><i style="background:#5b8def"></i>运动</span>
-    <span><i style="background:#a9794e"></i>奶茶</span>
-    <span><i style="background:#e8923c"></i>大鱼大肉</span>
-    <span><i style="background:#43a684"></i>健康餐</span>
-    <span><i style="background:#d977c9"></i>小快乐</span>
-    <span><i style="background:#3aa8c4"></i>社交活动</span>
-    <span><i style="background:#9b6fd1"></i>长痘</span>
-    <span><i style="background:#e3b53a"></i>11点前睡觉</span>`;
+    <span><i style="background:var(--rose-soft);border:1px solid #f3c2cd"></i>姨妈期</span>
+    <span><i style="background:repeating-linear-gradient(135deg,#fff,#fff 2px,var(--rose-soft) 2px,var(--rose-soft) 4px);border:1px solid #f3c2cd"></i>预测下次姨妈</span>
+    <span>图标 = 当天记了什么，点一天看下面的详情 👇</span>`;
+
+  renderDayDetail();
+}
+
+function dayEmojis(rec){
+  const emos = [];
+  if(!rec) return emos;
+  if(rec.period) emos.push("🩸");
+  if(rec.workouts && rec.workouts.length){
+    [...new Set(rec.workouts.map(w=> WO_EMOJI[w.type] || "✨"))].forEach(e=> emos.push(e));
+  }
+  if(rec.milktea > 0)  emos.push("🧋");
+  if(rec.feast > 0)    emos.push("🍖");
+  if(rec.healthy > 0)  emos.push("🥗");
+  if(rec.selfcare > 0) emos.push("💗");
+  if(rec.social > 0)   emos.push("🎉");
+  if(rec.acne)         emos.push("🌋");
+  if(rec.sleep)        emos.push("🌙");
+  return emos;
+}
+
+function renderDayDetail(){
+  const box = document.getElementById("daydetail");
+  const k = calSel;
+  if(!k || k.slice(0,7) !== calYM){   // 选中的不在当前月就不显示
+    box.style.display = "none"; return;
+  }
+  box.style.display = "block";
+  const rec = dayOrNull(k);
+  const dt = parseDate(k);
+  let html = `<div class="dd-head"><b>${dt.getMonth()+1}月${dt.getDate()}日 · 星期${WEEKS[dt.getDay()]}${k===todayKey()?"（今天）":""}</b>
+    <button class="dd-edit" id="dd-edit">✏️ 补记 / 修改</button></div>`;
+  const lines = [];
+  if(rec){
+    if(rec.period) lines.push(`<span class="de">🩸</span>姨妈日${rec.pain ? " · 难受程度 " + PAINS[rec.pain-1][0] + " " + PAINS[rec.pain-1][1] : ""}`);
+    (rec.workouts||[]).forEach(w=> lines.push(`<span class="de">${WO_EMOJI[w.type]||"✨"}</span>${w.type} ${fmtMins(w.mins)}`));
+    for(const key of ["milktea","feast","healthy","selfcare","social"]){
+      if(rec[key] > 0) lines.push(`<span class="de">${CATS[key].emoji}</span>${CATS[key].label} × ${rec[key]} ${CATS[key].unit}`);
+    }
+    if(rec.acne)  lines.push(`<span class="de">🌋</span>长痘了`);
+    if(rec.sleep) lines.push(`<span class="de">🌙</span>11点前睡觉，好样的！`);
+    if(rec.note && rec.note.trim()) lines.push(`<span class="de">📝</span>${escapeHtml(rec.note)}`);
+  }
+  html += lines.length
+    ? lines.map(l=> `<div class="dd-line">${l}</div>`).join("")
+    : `<div class="dd-empty">这天还没有记录，点右上角「补记」可以补上 ~</div>`;
+  box.innerHTML = html;
+  document.getElementById("dd-edit").onclick = ()=>{ curDate = k; switchView("log"); };
 }
 
 /* ================= 经期统计 ================= */
